@@ -1,3 +1,19 @@
+body {
+	font-family: "Roboto", sans-serif;
+}
+
+h1,
+h2 {
+	text-align: center;
+}
+
 #tooltip {
 	position: absolute;
+}
+
+main {
+	display: flex;
+	width: 100vw;
+	justify-content: center;
+	justify-items: center;
 }

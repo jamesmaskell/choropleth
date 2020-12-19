@@ -2,6 +2,8 @@
 <head>
     <title>Title</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap" rel="stylesheet">
 </head>
 <html>
     <body>
@@ -10,9 +12,12 @@
             <h2 id="description">County population percentage with a bachelors degree or higher</h2>
         </header>
         <div id="tooltip" style="display: none"></div>
+        <main>
+            <div id="chart"></div>
+        </main>
     </body>
     <script src="https://cdn.freecodecamp.org/testable-projects-fcc/v1/bundle.js"></script>
-    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
     <script src="index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 </html>
