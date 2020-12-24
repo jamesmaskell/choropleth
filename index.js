@@ -4,46 +4,44 @@ window.addEventListener("DOMContentLoaded", (event) => {
 
 		getEduData().then((response) => {
 			let eduData = response;
-		
-			let width = window.innerWidth * 0.50;
+
+			let width = window.innerWidth * 0.6;
 			// Don't let the width of the chart be any less than 600px
-			if (width < 600) width = 600; 
+			if (width < 700) width = 700;
 
 			let path = d3.geoPath();
-			let scaling = getScaling(topojson.feature(geoData, geoData.objects.counties), width, path)
+			let scaling = getScaling(topojson.feature(geoData, geoData.objects.counties), width, path);
 
-			let svg = d3
-				.select("#chart")
-				.append("svg")
-				.attr("width", scaling.width)
-				.attr("height", scaling.height);
+			let svg = d3.select("#chart").append("svg").attr("width", scaling.width).attr("height", scaling.height);
 
-	
-			
-			let max = d3.max(eduData, d => (d.bachelorsOrHigher));
+			let max = d3.max(eduData, (d) => d.bachelorsOrHigher);
 			max = Math.ceil(max / 10) * 10;
-			
+
 			let rangeColor = d3.range(max);
-			let color = d3.scaleQuantize().domain([0,max]).range(d3.schemeReds[9]);
-			
-			console.log(getTickArray(max))
-			let v = d3.scaleLinear().domain([0,max/100]).range([1,max*3]);
-			let rangeAxis = d3.axisBottom(v).tickSize(15).tickFormat(d3.format(".0%")).tickValues(getTickArray(max))
-			
+			let color = d3.scaleQuantize().domain([0, max]).range(d3.schemeBlues[8]);
+
+			console.log(getTickArray(max));
+			let v = d3
+				.scaleLinear()
+				.domain([0, max / 100])
+				.range([0, max * 3]);
+			let rangeAxis = d3.axisBottom(v).tickSize(15).tickFormat(d3.format(".0%")).tickValues(getTickArray(max));
+
 			function getTickArray(max) {
-				return [0, (max * 0.25)/100, (max * 0.5)/100, (max * 0.75)/100, max/100]
+				return [0, (max * (1 / 8)) / 100, (max * (2 / 8)) / 100, (max * (3 / 8)) / 100, (max * (4 / 8)) / 100, (max * (5 / 8)) / 100, (max * (6 / 8)) / 100, (max * (7 / 8)) / 100, max / 100];
 			}
-			
+
 			// draw map
-			svg.selectAll("path")
-			   .data(topojson.feature(geoData, geoData.objects.counties).features)
-			   .enter()
+			svg
+				.selectAll("path")
+				.data(topojson.feature(geoData, geoData.objects.counties).features)
+				.enter()
 				.append("path")
 				.attr("d", d3.geoPath(scale(scaling.scaleFactor)))
 				.attr("class", "county")
-				.attr("fill", (d) => { 
+				.attr("fill", (d) => {
 					let perc = getEduAttributes(d, eduData, "bachelorsOrHigher");
-					return color(perc)
+					return color(perc);
 				})
 				.attr("data-fips", (d) => {
 					return getEduAttributes(d, eduData, "fips");
@@ -56,38 +54,43 @@ window.addEventListener("DOMContentLoaded", (event) => {
 				.on("mouseout", handleMouseOut);
 
 			svg.append("g").attr("id", "legend");
-			
+
 			let legend = svg.select("#legend");
-				legend.selectAll("rect")
+			legend
+				.selectAll("rect")
 				.data(rangeColor)
 				.enter()
 				.append("rect")
 				.attr("y", 10)
 				.attr("height", 10)
-				.attr("x", (d,i)=> Math.floor(width * (1/2)) + (i * 3))
+				.attr("x", (d, i) => width * (1 / 2) + i * 3)
+				.attr("id", (d, i) => {
+					return `${i}%`;
+				})
 				.attr("width", 4)
-				.attr("fill", d=> color(d))
-			
-			svg.append("g")
+				.attr("fill", (d) => color(d));
+
+			svg
+				.append("g")
 				.attr("id", "x-axis")
-				.attr("transform", "translate(" + Math.floor(width * 1/2) + ",10)")
+				.attr("transform", "translate(" + width * (1 / 2) + ",10)")
 				.attr("class", "axis")
 				.call(rangeAxis);
 
 			d3.select(".domain").remove();
-			
+
 			function handleMouseMove(e, d) {
 				handleMouseOut(e, d);
 				handleMouseOver(e, d);
 			}
-			
-			function scale (scaleFactor) {
+
+			function scale(scaleFactor) {
 				return d3.geoTransform({
-				  point: function(x, y) {
-					this.stream.point((x + scaling.xAdjustment) * scaling.scaleFactor, (y + scaling.yAdjustment) * scaling.scaleFactor);
-				  }
+					point: function (x, y) {
+						this.stream.point((x + scaling.xAdjustment) * scaling.scaleFactor, (y + scaling.yAdjustment) * scaling.scaleFactor);
+					},
 				});
-			  }
+			}
 
 			function handleMouseOver(e, d) {
 				d3.select("#tooltip")
@@ -113,19 +116,6 @@ window.addEventListener("DOMContentLoaded", (event) => {
 		return county[property];
 	}
 
-	function getColour(value) {
-		if (value < 20.725) {
-			return "rgb(225,255,225)";
-		}
-		if (value < 38.85) {
-			return "rgb(150,255,150)";
-		}
-		if (value < 56.975) {
-			return "rgb(75,255,75)";
-		}
-		return "rgb(0,255,0)";
-	}
-
 	function getGeoData() {
 		return fetch("https://cdn.freecodecamp.org/testable-projects-fcc/data/choropleth_map/counties.json").then((response) => response.json());
 	}
@@ -136,17 +126,18 @@ window.addEventListener("DOMContentLoaded", (event) => {
 
 	function getScaling(geoJSON, width, path) {
 		let scaling = {
-			width: width
+			width: width,
 		};
 		let mapBounds = path.bounds(geoJSON);
-		let minXValue = mapBounds[0][0], maxXValue = mapBounds[1][0];
+		let minXValue = mapBounds[0][0],
+			maxXValue = mapBounds[1][0];
 		let xRange = maxXValue - minXValue;
 		scaling.scaleFactor = width / xRange;
-		
-		scaling.height = mapBounds[1][1] * scaling.scaleFactor
 
-		scaling.yAdjustment = (mapBounds[1][0] < 0) ? Math.abs(mapBounds[1][0]) : 0
-		scaling.xAdjustment = (mapBounds[0][0] < 0) ? Math.abs(mapBounds[0][0]) : 0
+		scaling.height = mapBounds[1][1] * scaling.scaleFactor;
+
+		scaling.yAdjustment = mapBounds[1][0] < 0 ? Math.abs(mapBounds[1][0]) : 0;
+		scaling.xAdjustment = mapBounds[0][0] < 0 ? Math.abs(mapBounds[0][0]) : 0;
 
 		return scaling;
 	}
