@@ -9,56 +9,43 @@ window.addEventListener("DOMContentLoaded", (event) => {
 			// Don't let the width of the chart be any less than 600px
 			if (width < 700) width = 700;
 
+			let geoJSON = topojson.feature(geoData, geoData.objects.counties);
+
 			let path = d3.geoPath();
-			let scaling = getScaling(topojson.feature(geoData, geoData.objects.counties), width, path);
+			let scaling = getScaling(geoJSON, width, path);
 
 			let svg = d3.select("#chart").append("svg").attr("width", scaling.width).attr("height", scaling.height);
 
 			let max = d3.max(eduData, (d) => d.bachelorsOrHigher);
 			max = Math.ceil(max / 10) * 10;
-
-			let rangeColor = d3.range(max);
-			let color = d3.scaleQuantize().domain([0, max]).range(d3.schemeBlues[8]);
-
-			console.log(getTickArray(max));
-			let v = d3
-				.scaleLinear()
-				.domain([0, max / 100])
-				.range([0, max * 3]);
-			let rangeAxis = d3.axisBottom(v).tickSize(15).tickFormat(d3.format(".0%")).tickValues(getTickArray(max));
-
-			function getTickArray(max) {
-				return [0, (max * (1 / 8)) / 100, (max * (2 / 8)) / 100, (max * (3 / 8)) / 100, (max * (4 / 8)) / 100, (max * (5 / 8)) / 100, (max * (6 / 8)) / 100, (max * (7 / 8)) / 100, max / 100];
-			}
+			let getColor = d3.scaleQuantize().domain([0, max]).range(d3.schemeBlues[8]);
 
 			// draw map
 			svg
 				.selectAll("path")
-				.data(topojson.feature(geoData, geoData.objects.counties).features)
+				.data(geoJSON.features)
 				.enter()
 				.append("path")
-				.attr("d", d3.geoPath(scale(scaling.scaleFactor)))
+				.attr("d", d3.geoPath(scale(scaling)))
 				.attr("class", "county")
-				.attr("fill", (d) => {
-					let perc = getEduAttributes(d, eduData, "bachelorsOrHigher");
-					return color(perc);
-				})
-				.attr("data-fips", (d) => {
-					return getEduAttributes(d, eduData, "fips");
-				})
-				.attr("data-education", (d) => {
-					return getEduAttributes(d, eduData, "bachelorsOrHigher");
-				})
+				.attr("fill", (d) => getColor(getPercentage(d, eduData)))
+				.attr("data-fips", (d) => getId(d, eduData))
+				.attr("data-education", (d) => getPercentage(d, eduData))
 				.on("mouseover", handleMouseOver)
 				.on("mousemove", handleMouseMove)
 				.on("mouseout", handleMouseOut);
 
 			svg.append("g").attr("id", "legend");
-
+			let colorRange = d3.range(max);
+			let legendScale = d3
+				.scaleLinear()
+				.domain([0, max / 100])
+				.range([0, max * 3]);
+			let legendAxis = d3.axisBottom(legendScale).tickSize(15).tickFormat(d3.format(".0%")).tickValues(getTickArray(max));
 			let legend = svg.select("#legend");
 			legend
 				.selectAll("rect")
-				.data(rangeColor)
+				.data(colorRange)
 				.enter()
 				.append("rect")
 				.attr("y", 10)
@@ -68,15 +55,13 @@ window.addEventListener("DOMContentLoaded", (event) => {
 					return `${i}%`;
 				})
 				.attr("width", 4)
-				.attr("fill", (d) => color(d));
-
+				.attr("fill", (d) => getColor(d));
 			svg
 				.append("g")
 				.attr("id", "x-axis")
 				.attr("transform", "translate(" + width * (1 / 2) + ",10)")
 				.attr("class", "axis")
-				.call(rangeAxis);
-
+				.call(legendAxis);
 			d3.select(".domain").remove();
 
 			function handleMouseMove(e, d) {
@@ -84,23 +69,16 @@ window.addEventListener("DOMContentLoaded", (event) => {
 				handleMouseOver(e, d);
 			}
 
-			function scale(scaleFactor) {
-				return d3.geoTransform({
-					point: function (x, y) {
-						this.stream.point((x + scaling.xAdjustment) * scaling.scaleFactor, (y + scaling.yAdjustment) * scaling.scaleFactor);
-					},
-				});
-			}
-
 			function handleMouseOver(e, d) {
 				d3.select("#tooltip")
-					.html(`${getEduAttributes(d, eduData, "area_name")}, ${getEduAttributes(d, eduData, "state")}<br>${getEduAttributes(d, eduData, "bachelorsOrHigher")}%`)
+					.html(`${getAreaName(d, eduData)}, ${getState(d, eduData)}<br>${getPercentage(d, eduData)}%`)
 					.style("background-color", "rgb(0,0,0,0.7)")
 					.style("color", "whitesmoke")
 					.style("padding", "10px")
+					.style("border-radius", "3px")
 					.style("top", `${e.pageY + 15}px`)
 					.style("left", `${e.pageX + 15}px`)
-					.attr("data-education", getEduAttributes(d, eduData, "bachelorsOrHigher"))
+					.attr("data-education", getPercentage(d, eduData))
 					.style("display", "block");
 			}
 
@@ -110,9 +88,33 @@ window.addEventListener("DOMContentLoaded", (event) => {
 		});
 	});
 
-	function getEduAttributes(d, eduData, property) {
+	function scale(scaling) {
+		return d3.geoTransform({
+			point: function (x, y) {
+				this.stream.point((x + scaling.xAdjustment) * scaling.scaleFactor, (y + scaling.yAdjustment) * scaling.scaleFactor);
+			},
+		});
+	}
+
+	function getId(countyDataPoint, eduData) {
+		return getEduAttributes(countyDataPoint, eduData, "fips");
+	}
+
+	function getPercentage(countyDataPoint, eduData) {
+		return getEduAttributes(countyDataPoint, eduData, "bachelorsOrHigher");
+	}
+
+	function getState(countyDataPoint, eduData) {
+		return getEduAttributes(countyDataPoint, eduData, "state");
+	}
+
+	function getAreaName(countyDataPoint, eduData) {
+		return getEduAttributes(countyDataPoint, eduData, "area_name");
+	}
+
+	function getEduAttributes(countyDataPoint, eduData, property) {
 		let eduMap = [...eduData];
-		let county = eduMap.filter((obj) => obj.fips === d.id)[0];
+		let county = eduMap.filter((eduDataObj) => eduDataObj.fips === countyDataPoint.id)[0];
 		return county[property];
 	}
 
@@ -125,20 +127,28 @@ window.addEventListener("DOMContentLoaded", (event) => {
 	}
 
 	function getScaling(geoJSON, width, path) {
-		let scaling = {
-			width: width,
-		};
 		let mapBounds = path.bounds(geoJSON);
+		return {
+			width: width,
+			scaleFactor: getScaleFactor(mapBounds, width),
+			yAdjustment: getAdjustment(mapBounds, 1),
+			xAdjustment: getAdjustment(mapBounds, 0),
+			height: mapBounds[1][1] * getScaleFactor(mapBounds, width),
+		};
+	}
+
+	function getScaleFactor(mapBounds, width) {
 		let minXValue = mapBounds[0][0],
 			maxXValue = mapBounds[1][0];
 		let xRange = maxXValue - minXValue;
-		scaling.scaleFactor = width / xRange;
+		return width / xRange;
+	}
 
-		scaling.height = mapBounds[1][1] * scaling.scaleFactor;
+	function getAdjustment(mapBounds, idx) {
+		return mapBounds[idx][0] < 0 ? Math.abs(mapBounds[idx][0]) : 0;
+	}
 
-		scaling.yAdjustment = mapBounds[1][0] < 0 ? Math.abs(mapBounds[1][0]) : 0;
-		scaling.xAdjustment = mapBounds[0][0] < 0 ? Math.abs(mapBounds[0][0]) : 0;
-
-		return scaling;
+	function getTickArray(max) {
+		return [0, (max * (1 / 8)) / 100, (max * (2 / 8)) / 100, (max * (3 / 8)) / 100, (max * (4 / 8)) / 100, (max * (5 / 8)) / 100, (max * (6 / 8)) / 100, (max * (7 / 8)) / 100, max / 100];
 	}
 });
